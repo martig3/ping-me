@@ -8,7 +8,7 @@
   onMount(async () => {
     await onOpenUrl((urls) => {
       console.log('deep link:', urls);
-      goto('/authenticated');
+      goto('/authorized');
     });
   });
   function onClick() {
