@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "identifier": "com.wow-notifier.app",
   "build": {
-    "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun run build",
     "frontendDist": "../build"
@@ -13,8 +12,9 @@
     "windows": [
       {
         "title": "wow-notifier",
-        "width": 800,
-        "height": 600
+        "width": 300,
+        "height": 400,
+        "resizable": false
       }
     ],
     "security": {
@@ -33,6 +33,9 @@
     ]
   },
   "plugins": {
+    "shell": {
+      "open": true
+    },
     "deep-link": {
       "desktop": {
         "schemes": [
