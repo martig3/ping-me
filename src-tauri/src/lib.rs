@@ -1,9 +1,8 @@
 use futures::future::try_join_all;
 use screenshots::Screen;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use tauri::Manager;
+use tauri::{AppHandle, Emitter};
 use tempfile::Builder;
 use tokio::process::Command;
 
@@ -62,7 +61,7 @@ async fn start_notifying(
                             if found {
                                 app.emit("notified", ()).unwrap();
                             }
-                            println!("Work complete! Found: {}", found);
+                            println!("Work complete - Found: {}", found);
                             let secs = if found { 2 * 60 } else { 5 };
                             println!("sleeping for {}s", &secs);
                             sleep(Duration::from_secs(secs)).await;
@@ -122,7 +121,7 @@ async fn detect() -> anyhow::Result<bool> {
 
                 let found = text.contains(&search_phrase);
                 if found {
-                    println!("Found matching phrase!");
+                    println!("Found matching phrase");
                     println!("Screen: {}", screen.display_info.id);
                     println!("Time: {}", chrono::Local::now());
                 }
