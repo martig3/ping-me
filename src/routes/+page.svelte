@@ -18,8 +18,8 @@
     if (differenceInMinutes(new Date(), lastNotified) < 1) return 'Just now';
     if (differenceInMinutes(new Date(), lastNotified) < 60)
       return `${differenceInMinutes(new Date(), lastNotified)} minutes ago`;
-    if (differenceInMinutes(new Date(), lastNotified) < 1440)
-      return `${differenceInMinutes(new Date(), lastNotified) / 60} hours ago`;
+
+    return `Over ${Math.floor(differenceInMinutes(new Date(), lastNotified) / 60)} hours ago`;
   });
   async function start() {
     const state: NotifyState = await invoke('start_notifying');
