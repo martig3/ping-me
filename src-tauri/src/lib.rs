@@ -3,6 +3,8 @@ use screenshots::Screen;
 use serde::Serialize;
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_shell::process::CommandEvent;
+use tauri_plugin_shell::ShellExt;
 use tempfile::Builder;
 use tokio::process::Command;
 
@@ -56,7 +58,7 @@ async fn start_notifying(
             select! {
                 _ = async {
                     println!("Working...");
-                    match detect().await {
+                    match detect(&app).await {
                         Ok(found) => {
                             if found {
                                 app.emit("notified", ()).unwrap();
@@ -84,7 +86,7 @@ async fn start_notifying(
     Ok(NotifyStateResponse { is_running: true })
 }
 
-async fn detect() -> anyhow::Result<bool> {
+async fn detect(app: &AppHandle) -> anyhow::Result<bool> {
     let temp_dir = Builder::new().prefix("screenshot_monitor").tempdir()?;
     let search_phrase = "Enter Dungeon";
     let screens = Screen::all()?;
@@ -100,15 +102,17 @@ async fn detect() -> anyhow::Result<bool> {
             async move {
                 let image = screen.capture()?;
                 image.save(&temp_path).expect("Failed to save image");
-                let mut cmd = Command::new("cmd");
-                cmd.current_dir(&temp_dir_path);
-                cmd.args([
-                    "/C".to_string(),
-                    "C:\\Program Files\\Tesseract-OCR\\tesseract.exe".to_string(),
-                    format!("temp_screenshot_{}.png", screen.display_info.id),
-                    "stdout".to_string(),
-                ]);
-                let output = cmd.output().await?;
+                let output = app
+                    .shell()
+                    .sidecar("tesseract-ocr")
+                    .unwrap()
+                    .envs([("TESSDATA_PREFIX", "./binaries/tesseract-ocr/tessdata")])
+                    .args([
+                        temp_path.to_str().unwrap().to_string(),
+                        "stdout".to_string(),
+                    ])
+                    .output()
+                    .await?;
                 let text = if output.status.success() {
                     String::from_utf8(output.stdout)?
                 } else {
@@ -157,8 +161,10 @@ async fn stop_notifying(state: State<'_, Arc<NotifyState>>) -> Result<NotifyStat
 }
 
 #[tauri::command]
-async fn is_notifying(state: State<'_, Arc<NotifyState>>) -> Result<bool, String> {
-    Ok(*state.is_running.lock().await)
+async fn is_notifying(state: State<'_, Arc<NotifyState>>) -> Result<NotifyStateResponse, String> {
+    Ok(NotifyStateResponse {
+        is_running: *state.is_running.lock().await,
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

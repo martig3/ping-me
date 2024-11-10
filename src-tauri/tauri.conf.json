@@ -12,8 +12,8 @@
     "windows": [
       {
         "title": "wow-notifier",
-        "width": 300,
-        "height": 400,
+        "width": 400,
+        "height": 220,
         "resizable": false
       }
     ],
@@ -30,6 +30,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/tesseract-ocr"
+    ],
+    "resources": [
+      "binaries/tesseract-ocr"
     ]
   },
   "plugins": {
