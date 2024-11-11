@@ -1,64 +1,74 @@
 <script lang="ts">
-  import type { PageData } from './$types';
-  import * as Avatar from '$lib/components/ui/avatar/index.js';
-  import * as Card from '$lib/components/ui/card/index.js';
+  import type { PageData } from "./$types";
+  import * as Avatar from "$lib/components/ui/avatar/index.js";
+  import * as Card from "$lib/components/ui/card/index.js";
   import {
     CornerDownLeftIcon,
     LoaderCircleIcon,
     PauseIcon,
     PlayIcon,
     SettingsIcon,
-  } from 'lucide-svelte';
-  import Button from '$lib/components/ui/button/button.svelte';
-  import { invoke } from '@tauri-apps/api/core';
-  import type { NotifyState } from '$lib/types/notify-state';
-  import { listen } from '@tauri-apps/api/event';
-  import { differenceInMinutes } from 'date-fns';
-  import { onDestroy, onMount } from 'svelte';
-  import type { Trigger } from '$lib/types/trigger';
-  import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+  } from "lucide-svelte";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import type { NotifyState } from "$lib/types/notify-state";
+  import { listen } from "@tauri-apps/api/event";
+  import { differenceInMinutes } from "date-fns";
+  import { onDestroy, onMount } from "svelte";
+  import type { Trigger } from "$lib/types/trigger";
+  import { Skeleton } from "$lib/components/ui/skeleton/index.js";
 
   const { data }: { data: PageData } = $props();
-  const user = $derived(data.user);
+  const user = $derived(data.user!);
   let interval = $state<number | null>(null);
   let triggers = $state<Trigger[]>(
-    JSON.parse(localStorage.getItem('triggers') || '[]')
+    JSON.parse(localStorage.getItem("triggers") || "[]"),
   );
+  let notifying = $state(false);
+  let lastNotified = $state<Date | null>(
+    localStorage.getItem("lastNotified")
+      ? new Date(localStorage.getItem("lastNotified") as string)
+      : null,
+  );
+  let lastNotifiedDisplay = $state("n/a");
   onMount(async () => {
+    updateLastNotifiedDisplay();
     interval = setInterval(updateLastNotifiedDisplay, 1000);
-    const state: NotifyState = await invoke('is_notifying');
+    const state: NotifyState = await invoke("is_notifying");
     notifying = state.isRunning;
   });
   onDestroy(() => {
     if (interval) clearInterval(interval);
   });
-  let notifying = $state(false);
-  let lastNotified = $state<Date | null>(null);
-  let updateLastNotifiedDisplay = () => {
-    if (!lastNotified) return 'n/a';
+  function updateLastNotifiedDisplay() {
+    if (!lastNotified) return "n/a";
     let minAgo = differenceInMinutes(new Date(), lastNotified);
     if (minAgo < 1) {
-      lastNotifiedDisplay = 'Just now';
+      lastNotifiedDisplay = "Just now";
       return;
     }
     if (minAgo < 60) {
-      lastNotifiedDisplay = `${differenceInMinutes(new Date(), lastNotified)} minute${minAgo > 1 ? 's' : ''} ago`;
+      lastNotifiedDisplay = `${differenceInMinutes(new Date(), lastNotified)} minute${minAgo > 1 ? "s" : ""} ago`;
       return;
     }
 
     lastNotifiedDisplay = `Over ${Math.floor(minAgo / 60)} hours ago`;
-  };
-  let lastNotifiedDisplay = $state(updateLastNotifiedDisplay());
+  }
   async function start() {
-    const state: NotifyState = await invoke('start_notifying');
+    const state: NotifyState = await invoke("start_notifying", {
+      phrases: triggers.filter((t) => t.isActive).map((t) => t.phrase),
+    });
     notifying = state.isRunning;
   }
   async function stop() {
-    const state: NotifyState = await invoke('stop_notifying');
+    const state: NotifyState = await invoke("stop_notifying");
     notifying = state.isRunning;
   }
-  listen('notified', () => {
+  listen("notified", () => {
     lastNotified = new Date();
+    if (lastNotified) {
+      localStorage.setItem("lastNotified", lastNotified.toISOString());
+    }
   });
 </script>
 
@@ -99,7 +109,7 @@
       <Button class="w-full" onclick={start} disabled={triggers.length === 0}>
         <PlayIcon class="size-4" />
         {triggers.length === 0
-          ? 'Add config to start notifying'
+          ? "Add config to start notifying"
           : `Start Notifying (${triggers.length})`}
       </Button>
     {/if}

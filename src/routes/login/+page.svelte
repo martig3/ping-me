@@ -1,9 +1,11 @@
 <script lang="ts">
-  import DiscordIcon from '$lib/img/discord.svg';
-  import Button from '$lib/components/ui/button/button.svelte';
+  import DiscordIcon from "$lib/img/discord.svg";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import { Command } from "@tauri-apps/plugin-shell";
+  import { PUBLIC_BASE_API } from "$env/static/public";
 
-  function onClick() {
-    // TODO: open browser to discord login
+  async function onClick() {
+    window.location.href = `${PUBLIC_BASE_API}/auth/login`;
   }
 </script>
 
