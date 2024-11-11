@@ -3,11 +3,10 @@ use screenshots::Screen;
 use serde::Serialize;
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
-use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tempfile::Builder;
-use tokio::process::Command;
 
+use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
 use tauri::State;
@@ -15,7 +14,10 @@ use tokio::select;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
-
+#[cfg(debug_assertions)]
+const INITIAL_URL: &str = "http://localhost:1420";
+#[cfg(not(debug_assertions))]
+const INITIAL_URL: &str = "tauri://localhost";
 struct NotifyState {
     cancel_tx: broadcast::Sender<()>,
     is_running: Mutex<bool>,
@@ -41,6 +43,7 @@ struct NotifyStateResponse {
 async fn start_notifying(
     app: AppHandle,
     state: State<'_, Arc<NotifyState>>,
+    phrases: Vec<String>,
 ) -> Result<NotifyStateResponse, String> {
     let mut is_running = state.is_running.lock().await;
 
@@ -58,13 +61,13 @@ async fn start_notifying(
             select! {
                 _ = async {
                     println!("Working...");
-                    match detect(&app).await {
-                        Ok(found) => {
-                            if found {
-                                app.emit("notified", ()).unwrap();
+                    match detect(&app, &phrases).await {
+                        Ok(found_phrases) => {
+                            if found_phrases.len() > 0 {
+                                app.emit("notified", &found_phrases).unwrap();
                             }
-                            println!("Work complete - Found: {}", found);
-                            let secs = if found { 2 * 60 } else { 5 };
+                            println!("Work complete - Found: {:?}", found_phrases);
+                            let secs = if found_phrases.len() > 0 { 2 * 60 } else { 5 };
                             println!("sleeping for {}s", &secs);
                             sleep(Duration::from_secs(secs)).await;
                         },
@@ -86,18 +89,15 @@ async fn start_notifying(
     Ok(NotifyStateResponse { is_running: true })
 }
 
-async fn detect(app: &AppHandle) -> anyhow::Result<bool> {
+async fn detect(app: &AppHandle, phrases: &Vec<String>) -> anyhow::Result<Vec<String>> {
     let temp_dir = Builder::new().prefix("screenshot_monitor").tempdir()?;
-    let search_phrase = "Enter Dungeon";
     let screens = Screen::all()?;
-    let temp_dir_path = temp_dir.path();
     let search_futures: Vec<_> = screens
         .iter()
         .map(|screen| {
             let temp_path = temp_dir
                 .path()
                 .join(format!("temp_screenshot_{}.png", screen.display_info.id));
-            let search_phrase = search_phrase.to_string();
 
             async move {
                 let image = screen.capture()?;
@@ -123,8 +123,12 @@ async fn detect(app: &AppHandle) -> anyhow::Result<bool> {
                     )));
                 };
 
-                let found = text.contains(&search_phrase);
-                if found {
+                let found_phrases: Vec<String> = phrases
+                    .iter()
+                    .map(|p| p.to_string())
+                    .filter(|p| text.contains(p))
+                    .collect();
+                if found_phrases.len() > 0 {
                     println!("Found matching phrase");
                     println!("Screen: {}", screen.display_info.id);
                     println!("Time: {}", chrono::Local::now());
@@ -134,18 +138,20 @@ async fn detect(app: &AppHandle) -> anyhow::Result<bool> {
                     tokio::fs::remove_file(&temp_path).await?;
                 }
 
-                Ok::<bool, anyhow::Error>(found)
+                Ok::<Vec<String>, anyhow::Error>(found_phrases)
             }
         })
         .collect();
 
     let results = try_join_all(search_futures).await?;
-    let found = results
+    let found_phrases = results
         .into_iter()
-        .reduce(|acc, x| acc || x)
-        .unwrap_or(false);
+        .flat_map(|f| f)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
 
-    Ok(found)
+    Ok(found_phrases)
 }
 
 #[tauri::command]
@@ -190,15 +196,21 @@ pub fn run() {
         )
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             #[cfg(any(windows, target_os = "linux"))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 app.deep_link().register_all()?;
+                let main_webview = app.get_webview_window("main").unwrap();
+                app.deep_link().on_open_url(move |_event| {
+                    main_webview
+                        .eval(&format!("window.location.href = '{}'", INITIAL_URL))
+                        .unwrap();
+                });
             }
             Ok(())
         })
+        .plugin(tauri_plugin_shell::init())
         .manage(Arc::new(NotifyState::new()))
         .invoke_handler(tauri::generate_handler![
             start_notifying,

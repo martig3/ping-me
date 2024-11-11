@@ -1,1 +1,1 @@
-# wow-notifier
+# ping-me
