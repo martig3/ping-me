@@ -31,6 +31,7 @@
       : null,
   );
   let lastNotifiedDisplay = $state("n/a");
+  let activeTriggers = $derived(triggers.filter((t) => t.isActive));
   onMount(async () => {
     updateLastNotifiedDisplay();
     interval = setInterval(updateLastNotifiedDisplay, 1000);
@@ -56,7 +57,7 @@
   }
   async function start() {
     const state: NotifyState = await invoke("start_notifying", {
-      phrases: triggers.filter((t) => t.isActive).map((t) => t.phrase),
+      phrases: activeTriggers.map((t) => t.phrase),
     });
     notifying = state.isRunning;
   }
@@ -103,14 +104,18 @@
       <Button class="w-full group [&>*]:transition-all" onclick={stop}>
         <LoaderCircleIcon class="size-4 animate-spin group-hover:hidden" />
         <PauseIcon class="size-4 hidden group-hover:block" />
-        Pause Notifying
+        Pause Notifying ({activeTriggers.length})
       </Button>
     {:else}
-      <Button class="w-full" onclick={start} disabled={triggers.length === 0}>
+      <Button
+        class="w-full"
+        onclick={start}
+        disabled={activeTriggers.length === 0}
+      >
         <PlayIcon class="size-4" />
-        {triggers.length === 0
+        {activeTriggers.length === 0
           ? "Add config to start notifying"
-          : `Start Notifying (${triggers.length})`}
+          : `Start Notifying (${activeTriggers.length})`}
       </Button>
     {/if}
     <Button variant="outline" class="w-fit" href="/config">

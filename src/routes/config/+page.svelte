@@ -12,6 +12,8 @@
   import { Input } from "$lib/components/ui/input/index.js";
   import { Switch } from "$lib/components/ui/switch/index.js";
   import { goto } from "$app/navigation";
+  import type { NotifyState } from "$lib/types/notify-state";
+  import { invoke } from "@tauri-apps/api/core";
 
   let triggers = $state<Trigger[]>(
     JSON.parse(localStorage.getItem("triggers") || "[]"),
@@ -24,8 +26,15 @@
     triggers.push(newTrigger);
     newTrigger = { phrase: "", isActive: true };
   }
-  function save() {
+  async function save() {
     localStorage.setItem("triggers", JSON.stringify(triggers));
+    const state: NotifyState = await invoke("is_notifying");
+    if (state.isRunning) {
+      await invoke("stop_notifying");
+      await invoke("start_notifying", {
+        phrases: triggers.filter((t) => t.isActive).map((t) => t.phrase),
+      });
+    }
     goto("/");
   }
   function remove(removed: Trigger) {
@@ -52,7 +61,7 @@
             placeholder="Phrase to trigger notification"
             bind:value={trigger.phrase}
           />
-          <Switch checked={trigger.isActive} />
+          <Switch bind:checked={trigger.isActive} />
           <Button
             variant="destructive"
             size="icon"
