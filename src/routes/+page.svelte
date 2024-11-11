@@ -17,6 +17,7 @@
   import { onDestroy, onMount } from "svelte";
   import type { Trigger } from "$lib/types/trigger";
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
+  import { PUBLIC_BASE_API } from "$env/static/public";
 
   const { data }: { data: PageData } = $props();
   const user = $derived(data.user!);
@@ -65,7 +66,18 @@
     const state: NotifyState = await invoke("stop_notifying");
     notifying = state.isRunning;
   }
-  listen("notified", () => {
+  listen("notified", async ({ payload }) => {
+    console.log("notified", payload);
+    const phrases = payload as string[];
+    const query = new URLSearchParams([["phrases", phrases.join(",")]]);
+    const resp = await fetch(`${PUBLIC_BASE_API}/notify?${query.toString()}`, {
+      credentials: "include",
+      method: "POST",
+    });
+    if (!resp.ok) {
+      console.error("Failed to notify", await resp.text());
+      return;
+    }
     lastNotified = new Date();
     if (lastNotified) {
       localStorage.setItem("lastNotified", lastNotified.toISOString());

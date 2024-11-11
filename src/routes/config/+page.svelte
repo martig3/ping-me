@@ -78,6 +78,7 @@
           type="text"
           placeholder="New phrase (case sensitive)"
           bind:value={newTrigger.phrase}
+          class="w-full"
         />
         <Button
           variant="ghost"
