@@ -58,6 +58,7 @@
         <div class="flex flex-row gap-2 items-center">
           <Input
             type="text"
+            class={!trigger.isActive ? "text-gray-500" : ""}
             placeholder="Phrase to trigger notification"
             bind:value={trigger.phrase}
           />
