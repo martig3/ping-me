@@ -13,8 +13,8 @@
       {
         "title": "wow-notifier",
         "width": 400,
-        "height": 220,
-        "resizable": false
+        "height": 300,
+        "resizable": true
       }
     ],
     "security": {
